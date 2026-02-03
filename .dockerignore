@@ -1,0 +1,27 @@
+.git
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+venv
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+eidolon/ui/node_modules
+eidolon/ui/dist
+eidolon/ui/build
+eidolon/ui/.vite
+eidolon/ui/.turbo
+node_modules
+dist
+build
+*.log
+
+# Database volumes
+postgres_data
+neo4j_data
+docker-data
+
+# Test artifacts
+.tooling-test

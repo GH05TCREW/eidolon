@@ -1,0 +1,100 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Ruff cache
+.ruff_cache/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Environment variables
+.env
+.env.local
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker volumes/data
+postgres_data/
+neo4j_data/
+docker-data/
+
+# Node.js (UI)
+eidolon/ui/node_modules/
+eidolon/ui/dist/
+eidolon/ui/build/
+eidolon/ui/.vite/
+eidolon/ui/.turbo/
+
+# API keys
+.env.vars
+
+# Tooling test artifacts
+.tooling-test/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# JetBrains IDEs
+*.iml
+.idea/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter
+.ipynb_checkpoints
+
+# pytest
+.tox/

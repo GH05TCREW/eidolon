@@ -1,0 +1,80 @@
+[project]
+name = "eidolon"
+version = "0.1.0"
+description = "Eidolon - evidence-backed infrastructure graph and human-in-the-loop agent runtime."
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [{name = "Masic"}]
+dependencies = [
+  "fastapi>=0.115.5",
+  "uvicorn[standard]>=0.32.0",
+  "pydantic>=2.9.2",
+  "pydantic-settings>=2.3.4",
+  "defusedxml>=0.7.1",
+  "neo4j>=5.25.0",
+  "psycopg[binary]>=3.2.3",
+  "pyyaml>=6.0.1",
+  "structlog>=24.4.0",
+  "opentelemetry-api>=1.28.2",
+  "opentelemetry-sdk>=1.28.2",
+  "litellm>=1.37.12",
+  "jinja2>=3.1.4",
+  "httpx>=0.27.2",
+  "tenacity>=9.0.0",
+  "typing-extensions>=4.12.2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.6.9",
+  "black>=24.10.0",
+  "mypy>=1.13.0",
+  "pytest>=8.3.3",
+  "pytest-asyncio>=0.24.0",
+  "pytest-cov>=5.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["eidolon.tests*"]
+
+[project.scripts]
+eidolon = "eidolon.cli:main"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = [".git", ".mypy_cache", ".ruff_cache", ".pytest_cache", "dist", "build"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "N", "B", "I", "UP", "S", "BLE", "RET", "SIM", "TID", "RUF"]
+ignore = ["S101", "S311", "SIM117", "RET504", "RET505"]
+fixable = ["ALL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = ["--strict-config", "--strict-markers", "--disable-warnings"]
+testpaths = ["eidolon/tests"]
+asyncio_mode = "auto"
