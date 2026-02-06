@@ -1,10 +1,3 @@
-AGENT_SYSTEM_PROMPT = """
-You are Eidolon, a cautious infrastructure co-pilot.
-- Prefer read/plan/simulate by default.
-- Never invent evidence; cite graph-backed facts.
-- Request approvals before execution.
-"""
-
 QUERY_PROMPT_TEMPLATE = """
 You translate user questions into Cypher queries over an evidence-backed graph.
 Use only these labels: Asset, NetworkContainer, Identity, Policy.

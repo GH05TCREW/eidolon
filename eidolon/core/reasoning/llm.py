@@ -169,6 +169,10 @@ class LiteLLMClient:
             choices = (
                 raw_response["choices"] if isinstance(raw_response, dict) else raw_response.choices
             )
+            if not choices:
+                raise ValueError(
+                    "LLM returned empty choices array - check API status or rate limits"
+                )
             choice = choices[0]
             message = choice["message"] if isinstance(choice, dict) else choice.message
             tool_calls = (

@@ -80,24 +80,127 @@ const getNodeColor = (label: string): string => {
 const formatLabel = (label: string): string =>
   label.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ");
 
-const formatMetadataValue = (key: string, value: unknown): string => {
-  if (Array.isArray(value)) {
-    if (key === "ports" && value.length > 0 && typeof value[0] === "object") {
-      // Filter to only show open ports
-      const openPorts = value.filter((p: any) => p.state === "open");
-      if (openPorts.length === 0) {
-        return "No open ports";
-      }
-      return openPorts
-        .map((p: any) => `${p.port}/${p.service || "unknown"}`)
-        .join(", ");
-    }
-    return value.slice(0, 5).join(", ") + (value.length > 5 ? ` +${value.length - 5} more` : "");
+const formatUptime = (seconds: number): string => {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h ${mins}m`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+};
+
+const parseSSLCert = (scriptOutput: string): { subject?: string; issuer?: string; validity?: string } | null => {
+  try {
+    const subjectMatch = scriptOutput.match(/Subject:\s*(.+?)(?:\n|$)/);
+    const issuerMatch = scriptOutput.match(/Issuer:\s*(.+?)(?:\n|$)/);
+    const validityMatch = scriptOutput.match(/Not valid (?:before|after):\s*(.+?)(?:\n|$)/);
+    return {
+      subject: subjectMatch?.[1]?.trim(),
+      issuer: issuerMatch?.[1]?.trim(),
+      validity: validityMatch?.[1]?.trim(),
+    };
+  } catch {
+    return null;
   }
-  if (typeof value === "object" && value !== null) {
-    return JSON.stringify(value).slice(0, 50);
-  }
-  return String(value);
+};
+
+const PortsTable: React.FC<{ ports: any[] }> = ({ ports }) => {
+  const openPorts = ports.filter((p) => p.state === "open");
+  if (openPorts.length === 0) return <div style={{ color: "var(--muted)", fontSize: "12px" }}>No open ports</div>;
+  
+  return (
+    <div style={{ 
+      fontSize: "11px", 
+      border: "1px solid var(--border)", 
+      borderRadius: "4px", 
+      overflow: "hidden",
+      marginTop: "8px"
+    }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead style={{ background: "var(--surface)" }}>
+          <tr>
+            <th style={{ padding: "6px 8px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Port</th>
+            <th style={{ padding: "6px 8px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Service</th>
+            <th style={{ padding: "6px 8px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Version</th>
+          </tr>
+        </thead>
+        <tbody>
+          {openPorts.map((port, idx) => (
+            <tr key={idx} style={{ borderBottom: idx < openPorts.length - 1 ? "1px solid var(--border)" : "none" }}>
+              <td style={{ padding: "6px 8px", color: "var(--success)" }}>{port.port}</td>
+              <td style={{ padding: "6px 8px" }}>{port.service || "unknown"}</td>
+              <td style={{ padding: "6px 8px", fontSize: "10px", color: "var(--muted)" }}>
+                {port.product ? `${port.product}${port.version ? ` ${port.version}` : ""}` : "-"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+const OSMatchesList: React.FC<{ matches: any[] }> = ({ matches }) => {
+  if (matches.length === 0) return null;
+  return (
+    <div style={{ marginTop: "8px", fontSize: "11px" }}>
+      {matches.slice(0, 3).map((match, idx) => (
+        <div key={idx} style={{ 
+          marginBottom: "6px", 
+          padding: "6px 8px", 
+          background: "var(--surface)", 
+          borderRadius: "4px",
+          borderLeft: `3px solid ${parseInt(match.accuracy || "0") > 90 ? "var(--success)" : parseInt(match.accuracy || "0") > 70 ? "var(--warning)" : "var(--muted)"}`
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>{match.name}</span>
+            <span style={{ fontSize: "10px", color: "var(--muted)" }}>{match.accuracy}%</span>
+          </div>
+        </div>
+      ))}
+      {matches.length > 3 && (
+        <div style={{ fontSize: "10px", color: "var(--muted)", marginTop: "4px" }}>
+          +{matches.length - 3} more matches
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CollapsibleSection: React.FC<{ title: string; defaultOpen?: boolean; children: React.ReactNode }> = ({ 
+  title, 
+  defaultOpen = true, 
+  children 
+}) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  return (
+    <div style={{ marginTop: "12px" }}>
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          cursor: "pointer", 
+          padding: "6px 0",
+          fontWeight: 600,
+          fontSize: "12px",
+          color: "var(--muted)",
+          userSelect: "none"
+        }}
+      >
+        <ChevronRight 
+          size={14} 
+          style={{ 
+            transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", 
+            transition: "transform 0.2s",
+            marginRight: "4px"
+          }} 
+        />
+        {title}
+      </div>
+      {isOpen && <div style={{ marginTop: "4px" }}>{children}</div>}
+    </div>
+  );
 };
 
 export function GraphView({ showToast, refreshTrigger }: GraphViewProps) {
@@ -576,12 +679,13 @@ export function GraphView({ showToast, refreshTrigger }: GraphViewProps) {
                   <span>{selectedNode.name || `Unnamed ${selectedNode.label}`}</span>
                 </div>
                 
+                {/* Basic Info Section */}
                 <div className="graph-details-row">
-                <span className="graph-details-label">Type</span>
-                <span className="graph-details-value">
-                  {formatLabel(selectedNode.label)}
-                </span>
-              </div>
+                  <span className="graph-details-label">Type</span>
+                  <span className="graph-details-value">
+                    {formatLabel(selectedNode.label)}
+                  </span>
+                </div>
                 
                 {selectedNode.kind && (
                   <div className="graph-details-row">
@@ -604,19 +708,135 @@ export function GraphView({ showToast, refreshTrigger }: GraphViewProps) {
                   </span>
                 </div>
 
-                {Object.keys(selectedNode.metadata).length > 0 && (
+                {/* Simplified Asset Details */}
+                {selectedNode.label === "Asset" && (
                   <>
-                    <div className="graph-details-divider" />
-                    <div className="graph-details-section-title">Metadata</div>
-                    {Object.entries(selectedNode.metadata).map(([key, value]) => (
-                      <div key={key} className="graph-details-row">
-                        <span className="graph-details-label">{key}</span>
-                        <span className="graph-details-value" title={String(value)}>
-                          {formatMetadataValue(key, value)}
+                    {selectedNode.metadata.hostname && (
+                      <div className="graph-details-row">
+                        <span className="graph-details-label">Hostname</span>
+                        <span className="graph-details-value">{String(selectedNode.metadata.hostname)}</span>
+                      </div>
+                    )}
+
+                    {selectedNode.metadata.mac_address && (
+                      <div className="graph-details-row">
+                        <span className="graph-details-label">MAC</span>
+                        <span className="graph-details-value" style={{ fontFamily: "monospace", fontSize: "11px" }}>
+                          {String(selectedNode.metadata.mac_address)}
                         </span>
                       </div>
-                    ))}
+                    )}
+
+                    {selectedNode.metadata.vendor && (
+                      <div className="graph-details-row">
+                        <span className="graph-details-label">Vendor</span>
+                        <span className="graph-details-value">{String(selectedNode.metadata.vendor)}</span>
+                      </div>
+                    )}
+
+                    {selectedNode.metadata.status && (
+                      <div className="graph-details-row">
+                        <span className="graph-details-label">Status</span>
+                        <span className="graph-details-value">
+                          <span style={{ 
+                            color: selectedNode.metadata.status === "online" ? "var(--success)" : "var(--muted)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px"
+                          }}>
+                            <span style={{ 
+                              width: "6px", 
+                              height: "6px", 
+                              borderRadius: "50%", 
+                              background: "currentColor" 
+                            }} />
+                            {String(selectedNode.metadata.status)}
+                          </span>
+                          {selectedNode.metadata.uptime_seconds && (
+                            <span style={{ color: "var(--muted)", marginLeft: "6px" }}>
+                              • {formatUptime(Number(selectedNode.metadata.uptime_seconds))}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+
+                    {selectedNode.metadata.cidr && (
+                      <div className="graph-details-row">
+                        <span className="graph-details-label">Network</span>
+                        <span className="graph-details-value" style={{ fontFamily: "monospace" }}>
+                          {String(selectedNode.metadata.cidr)}
+                        </span>
+                      </div>
+                    )}
+
+                    {selectedNode.metadata.os_matches && Array.isArray(selectedNode.metadata.os_matches) && selectedNode.metadata.os_matches.length > 0 && (
+                      <div className="graph-details-row">
+                        <span className="graph-details-label">OS</span>
+                        <span className="graph-details-value">
+                          {String((selectedNode.metadata.os_matches[0] as any).name)}
+                          {(selectedNode.metadata.os_matches[0] as any).accuracy && (
+                            <span style={{ 
+                              marginLeft: "6px",
+                              color: Number((selectedNode.metadata.os_matches[0] as any).accuracy) >= 90 ? "var(--success)" : "var(--warning)"
+                            }}>
+                              {String((selectedNode.metadata.os_matches[0] as any).accuracy)}%
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+
+                    {selectedNode.metadata.ports && Array.isArray(selectedNode.metadata.ports) && selectedNode.metadata.ports.length > 0 && (
+                      <div className="graph-details-row">
+                        <span className="graph-details-label">Ports</span>
+                        <span className="graph-details-value" style={{ fontSize: "11px" }}>
+                          {(() => {
+                            const openPorts = selectedNode.metadata.ports.filter((p: any) => p.state === "open");
+                            if (openPorts.length === 0) {
+                              return <span style={{ color: "var(--muted)" }}>No open ports</span>;
+                            }
+                            return (
+                              <>
+                                {openPorts.slice(0, 5).map((port: any, idx: number) => {
+                                  const portNum = String(port.port || "?");
+                                  const service = String(port.service || "");
+                                  return (
+                                    <span key={idx} style={{ color: "var(--success)" }}>
+                                      {idx > 0 && ", "}
+                                      {portNum}{service && `/${service}`}
+                                    </span>
+                                  );
+                                })}
+                                {openPorts.length > 5 && <span style={{ color: "var(--muted)" }}> +{openPorts.length - 5} more</span>}
+                              </>
+                            );
+                          })()}
+                        </span>
+                      </div>
+                    )}
+
+                    {(selectedNode.metadata.distance !== undefined || selectedNode.metadata.rtt_srtt_us) && (
+                      <div className="graph-details-row">
+                        <span className="graph-details-label">Latency</span>
+                        <span className="graph-details-value">
+                          {selectedNode.metadata.distance !== undefined && `${String(selectedNode.metadata.distance)} hops`}
+                          {selectedNode.metadata.distance !== undefined && selectedNode.metadata.rtt_srtt_us && " • "}
+                          {selectedNode.metadata.rtt_srtt_us && `${(Number(selectedNode.metadata.rtt_srtt_us) / 1000).toFixed(2)}ms`}
+                        </span>
+                      </div>
+                    )}
                   </>
+                )}
+
+                {/* Network Container specific info */}
+                {selectedNode.label === "NetworkContainer" && selectedNode.metadata.cidr && (
+                  <div className="graph-details-row">
+                    <span className="graph-details-label">CIDR</span>
+                    <span className="graph-details-value" style={{ fontFamily: "monospace" }}>
+                      {String(selectedNode.metadata.cidr)}
+                    </span>
+                  </div>
                 )}
 
                 <div className="graph-details-actions">

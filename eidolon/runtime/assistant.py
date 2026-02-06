@@ -194,20 +194,145 @@ RETURN a.node_id, a.metadata
 ```
 
 **Common Metadata Fields** (populated by collectors):
+
+*Basic Host Info:*
 - `ip` - IPv4/IPv6 address
 - `hostname` - DNS hostname
+- `hostnames` - Array of all hostnames discovered for the host
 - `mac_address` - MAC address (from ARP/nmap)
 - `vendor` - Network interface vendor (from MAC OUI lookup via nmap)
-- `ports` - Array of port objects:
-  `[{{"port": 22, "state": "open", "service": "ssh", "version": "..."}}]`
 - `status` - Host status: "online", "offline", "idle"
-- `os` - Operating system fingerprint (if available from nmap)
+- `status_reason` - Why nmap marked the host as up/down
+- `status_reason_ttl` - TTL of the response packet
 - `cidr` - Network CIDR the host belongs to
+
+*Port & Service Information:*
+- `ports` - Array of port objects with rich service details:
+  ```
+  [{{
+    "port": 22,
+    "state": "open",
+    "service": "ssh",
+    "product": "OpenSSH",
+    "version": "8.2p1",
+    "extrainfo": "Ubuntu-4ubuntu0.5",
+    "ostype": "Linux",
+    "method": "probed",
+    "conf": "10",
+    "cpe": ["cpe:/o:linux:linux_kernel"],
+    "protocol": "tcp",
+    "reason": "syn-ack",
+    "reason_ttl": "64",
+    "tunnel": "ssl",
+    "service_hostname": "example.com",
+    "scripts": {{"ssl-cert": "...", "http-title": "..."}}
+  }}]
+  ```
+
+*Operating System Fingerprinting:*
+- `os` - Primary OS guess (e.g., "Linux 5.4")
+- `os_accuracy` - Confidence percentage for OS match
+- `os_matches` - Array of OS match objects:
+  ```
+  [{{
+    "name": "Linux 5.4",
+    "accuracy": "98",
+    "line": "123",
+    "classes": [{{
+      "type": "general purpose",
+      "vendor": "Linux",
+      "osfamily": "Linux",
+      "osgen": "5.X",
+      "accuracy": "98",
+      "cpe": ["cpe:/o:linux:linux_kernel:5.4"]
+    }}]
+  }}]
+  ```
+
+*Network Timing & Distance:*
+- `uptime_seconds` - Host uptime in seconds
+- `uptime_last_boot` - Timestamp of last boot
+- `distance` - Network hop distance from scanner
+- `rtt_srtt_us` - Smoothed round-trip time (microseconds)
+- `rtt_var_us` - RTT variance (microseconds)
+- `rtt_timeout_us` - Timeout value used (microseconds)
+- `traceroute` - Array of hop objects:
+  ```
+  [{{
+    "ttl": 1,
+    "rtt": "0.50",
+    "ip": "192.168.1.1",
+    "hostname": "gateway.local"
+  }}]
+  ```
+
+*Host-Level Script Results:*
+- `host_scripts` - Dictionary of NSE script results:
+  ```
+  {{
+    "ssl-cert": "Subject: CN=example.com\\nIssuer: CN=Let's Encrypt...",
+    "http-title": "Welcome to nginx!",
+    "http-server-header": "nginx/1.18.0",
+    "smb-os-discovery": "Windows Server 2019...",
+    "ssh-hostkey": "ssh-rsa AAAAB3NzaC1...",
+    "clock-skew": "+2h30m",
+    "uptime": "23 days"
+  }}
+  ```
+
+**Infrastructure Clustering Signals:**
+
+When analyzing infrastructure relationships, these metadata fields are especially valuable:
+- **TLS Certificates** (`ssl-cert` in port scripts or host_scripts): Same cert across hosts
+  = likely same operator
+- **Service Versions** (`product` + `version` in ports): Same outdated version
+  = shared image/template
+- **HTTP Fingerprints** (`http-title`, `http-server-header` in scripts):
+  Identical titles/headers = same panel/kit
+- **OS + Uptime** (`os` + `uptime_seconds`): Hosts provisioned together often boot together
+- **Traceroute Paths** (`traceroute`): Shared routing = same hosting provider/datacenter
+- **Clock Skew** (`clock-skew` script): Timezone hints, VM detection
+- **SMB/Windows Info** (`smb-os-discovery` script): Domain names, workgroup patterns
 
 **Example - Find hosts by vendor:**
 ```cypher
 MATCH (a:Asset)
 WHERE a.metadata CONTAINS '"vendor"'
+RETURN a.node_id, a.metadata
+```
+
+**Querying Numeric Fields in JSON Metadata:**
+
+Since metadata is a JSON string (not a map), you CANNOT use dot notation or direct comparison.
+To query numeric fields like `rtt_srtt_us`, `uptime_seconds`, etc., use this pattern:
+
+```cypher
+MATCH (a:Asset)
+WHERE a.metadata CONTAINS '"rtt_srtt_us"'
+WITH a,
+     toInteger(
+       split(
+         split(a.metadata, '"rtt_srtt_us": ')[1],
+         ',')[0]
+     ) AS latency
+WHERE latency IS NOT NULL
+RETURN a.node_id, a.metadata, latency
+ORDER BY latency DESC
+LIMIT 5
+```
+
+**Parsing JSON metadata pattern:**
+1. Use `CONTAINS` to filter hosts that have the field
+2. Use `split(a.metadata, '"field_name": ')[1]` to get everything after the field
+3. Use `split(..., ',')[0]` or `split(..., '}}')[0]` to get just the value
+4. Convert with `toInteger()` or `toFloat()` for numbers
+5. Always check `WHERE value IS NOT NULL` to handle parsing failures
+
+**Example - Find hosts with open port 22:**
+```cypher
+MATCH (a:Asset)
+WHERE a.metadata CONTAINS '"port": 22'
+  AND a.metadata CONTAINS '"state": "open"'
 RETURN a.node_id, a.metadata
 ```
 

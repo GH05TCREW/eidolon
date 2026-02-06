@@ -840,7 +840,7 @@ export function ScannerControl({ onRefreshData, onOpenAudit, showToast }: Scanne
                 }
                 disabled={inputsDisabled}
               />
-              OS/Version detection
+              Deep fingerprinting (OS/Version + scripts + traceroute)
               </label>
             </div>
           </details>
