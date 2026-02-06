@@ -12,6 +12,13 @@ Network scanner with AI-powered analysis and automation. Scans your infrastructu
 - **Audit trail**: Every scan, query, plan, and execution logged to Postgres
 - **Interactive UI**: React frontend for graph visualization, chat, and approval workflows
 
+## Prerequisites
+
+- **nmap**: Required for network scanning. Must be installed and available in PATH.
+  - Windows: Download from [nmap.org](https://nmap.org/download.html)
+  - Linux: `sudo apt install nmap` or `sudo yum install nmap`
+  - macOS: `brew install nmap`
+
 ## Quick Start
 
 ```powershell
