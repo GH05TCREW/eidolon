@@ -2,6 +2,8 @@
 
 Network scanner with AI-powered analysis and automation. Scans your infrastructure with nmap, stores it in a graph database (Neo4j), and lets you query and operate on it using natural language. LLM agents generate plans, execute approved actions, and log everything for audit.
 
+<img width="2880" height="1454" alt="eido-demo" src="https://github.com/user-attachments/assets/f9736023-da41-4459-837f-8174cc55ad79" />
+
 ## Features
 
 - **Network scanning**: Automated nmap scans build a real-time map of hosts, ports, and services
